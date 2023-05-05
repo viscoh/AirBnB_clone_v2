@@ -1,42 +1,29 @@
 #!/usr/bin/python3
-"""
-    Fabric script that distributes an archive to the web servers.
-"""
-from os import path
-from fabric.api import env, put, run
+"""web server distribution"""
+from fabric.api import *
+import os.path
 
-env.hosts = ['35.229.40.200', '35.229.23.118']
+env.user = 'ubuntu'
+env.hosts = ["100.26.163.213", "100.26.229.242"]
+env.key_filename = "~/id_rsa"
 
 
 def do_deploy(archive_path):
-    """ Function that distributes the archive.
-
-    Args:
-        archive_path (str): the path of the archive to deploy on the servers.
+    """distributes an archive to your web servers
     """
-
-    try:
-        if not path.exists(archive_path):
-            raise FileNotFoundError
-
-        name = archive_path.split("/")[-1]
-        name_no_ext = name.split(".")[0]
-
-        remote = "/data/web_static/releases"
-        dest = "{}/{}".format(remote, name_no_ext)
-
-        put(archive_path, '/tmp')
-        run('mkdir -p {}/'.format(dest))
-        run('tar -xzf /tmp/{} -C {}'.format(name, dest))
-        run('rm /tmp/{}'.format(name))
-        run('mv {}/web_static/* {}/'.format(dest, dest))
-        run('rm -rf {}/web_static'.format(dest))
-        run('rm -rf /data/web_static/current')
-        run('ln -s {}/ /data/web_static/current'.format(dest))
-
-    except:
-        print("Error. Version deploy aborted")
+    if os.path.exists(archive_path) is False:
         return False
-
-    print("New version deployed!")
-    return True
+    try:
+        arc = archive_path.split("/")
+        base = arc[1].strip('.tgz')
+        put(archive_path, '/tmp/')
+        sudo('mkdir -p /data/web_static/releases/{}'.format(base))
+        main = "/data/web_static/releases/{}".format(base)
+        sudo('tar -xzf /tmp/{} -C {}/'.format(arc[1], main))
+        sudo('rm /tmp/{}'.format(arc[1]))
+        sudo('mv {}/web_static/* {}/'.format(main, main))
+        sudo('rm -rf /data/web_static/current')
+        sudo('ln -s {}/ "/data/web_static/current"'.format(main))
+        return True
+    except:
+        return False

@@ -1,63 +1,42 @@
-# Puppet script that sets up web servers for the deployment of web_static.
+# deploy static
+$whisper_dirs = [ '/data/', '/data/web_static/',
+                        '/data/web_static/releases/', '/data/web_static/shared/',
+                        '/data/web_static/releases/test/'
+                  ]
 
-include stdlib
-
-exec { 'update':
-  command => '/usr/bin/apt-get update',
-}
-
-package { 'nginx':
+package {'nginx':
   ensure  => installed,
-  name    => 'nginx',
-  require => Exec['update'],
 }
 
-file { [ '/data/', '/data/web_static/', '/data/web_static/releases/',
-          '/data/web_static/releases/test/' ]:
-  ensure => directory,
-  owner  => 'ubuntu',
-  group  => 'ubuntu',
+file { $whisper_dirs:
+        ensure  => 'directory',
+        owner   => 'ubuntu',
+        group   => 'ubuntu',
+        recurse => 'remote',
+        mode    => '0777',
 }
-
-file { '/data/web_static/shared':
-  ensure => directory,
-  owner  => 'ubuntu',
-  group  => 'ubuntu',
-}
-
-exec { 'Creates fake index.html':
-  path    => ['/usr/bin', '/usr/sbin', '/bin'],
-  command => 'echo "Hello Nginx!" > /data/web_static/releases/test/index.html',
-}
-
-exec { 'Change user:group owner of index.html':
-  path    => ['/usr/bin', '/usr/sbin', '/bin'],
-  command => 'chown -hR ubuntu:ubuntu /data/web_static/releases/test/index.html',
-}
-
 file { '/data/web_static/current':
-  ensure => 'link',
-  owner  => 'ubuntu',
-  group  => 'ubuntu',
-  target => '/data/web_static/releases/test'
+  ensure => link,
+  target => '/data/web_static/releases/test/',
+}
+file {'/data/web_static/releases/test/index.html':
+  ensure  => present,
+  content => 'Holberton School for the win!',
 }
 
-$to_add = '
-        location /hbnb_static/ {
-		                alias /data/web_static/current/;
-        }'
-
-file_line { 'location /hbnb_static/':
-  ensure  => 'present',
-  path    => '/etc/nginx/sites-available/default',
-  after   => 'server_name _;',
-  line    => $to_add,
-  require => Package['nginx'],
+exec { 'chown -R ubuntu:ubuntu /data/':
+  path => '/usr/bin/:/usr/local/bin/:/bin/'
 }
 
-service { 'nginx':
-  ensure     => running,
-  enable     => true,
-  hasrestart => true,
-  require    => Package['nginx'],
+file_line {'deploy static':
+  path  => '/etc/nginx/sites-available/default',
+  after => 'server_name _;',
+  line  => "\n\tlocation /hbnb_static {\n\t\talias /data/web_static/current/;\n\t}",
+}
+
+service {'nginx':
+  ensure  => running,
+}
+
+exec {'/etc/init.d/nginx restart':
 }
